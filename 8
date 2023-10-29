@@ -1,0 +1,253 @@
+#include<iostream>
+#include<cstdlib>
+#include<ctime>
+
+using namespace std;
+
+#define SIZE 10
+#define UP 0
+#define DOWN 1
+#define LEFT 2
+#define RIGHT 3
+
+class Grid
+{
+public:
+	Grid()
+	{
+		Grid(0);
+	}
+	Grid(int s)
+	{
+		state = s;
+		dir[UP] = NULL;
+		dir[DOWN] = NULL;
+		dir[LEFT] = NULL;
+		dir[RIGHT] = NULL;
+	}
+	Grid *getDir(int d) { return dir[d]; }
+	int getState() { return state; }
+	void setDir(int d, Grid *g) { dir[d] = g; }
+	void setState(int s) { state = s;}
+private:
+	Grid *dir[4];
+	int state;
+};
+
+struct List
+{
+public:
+	List()
+	{
+		top = 0;
+	}
+	/*
+	Insert an element from top
+	*/
+	void addElement(Grid *g)
+	{
+        if (top < SIZE*SIZE) {
+            data[top] = g;
+            top++;
+        }
+	}
+	/*
+	remove an element from top and return a pointer point to the element.
+	If list is empty, return NULL.
+	*/
+	Grid *removeElement()
+	{
+        if (top != 0) {
+            top--;
+            return data[top];  
+        }
+        return nullptr;
+	}
+	void printPath()
+	{
+		int j;
+		for(j = 1;j < top;j ++)
+		{
+			if(data[j] == data[j - 1]->getDir(UP))
+			{
+				cout<<"UP\n";
+			}
+			else if(data[j] == data[j - 1]->getDir(DOWN))
+			{
+				cout<<"DOWN\n";
+			}
+			else if(data[j] == data[j - 1]->getDir(LEFT))
+			{
+				cout<<"LEFT\n";
+			}
+			else if(data[j] == data[j - 1]->getDir(RIGHT))
+			{
+				cout<<"RIGHT\n";
+			}
+		}
+	}
+private:
+	Grid *data[SIZE * SIZE];
+	int top;
+};
+
+class Maze
+{
+public:
+	Maze()
+	{
+		initMaze(SIZE);
+	}
+	/*
+	function initMaze
+	Alocate a 2-D link list with s * s sizes as the map of maze.
+	Inside the maze enery gird with state 0 represent empty space and 1 represent wall.
+	The gird in left top is start point and right bottom is finish point.
+	Randomly generate 20% wall in the maze.
+	Make sure start point and finish point are 0
+
+	動態配置一個二維的鏈結串列，大小是 s * s，用這個鏈結串列表示迷宮的地圖
+	節點中 0 的值表示可以移動的空間， 1 表示牆壁 
+	左上角的位置表示起點，右下角的位置表示終點
+	請在迷宮中加入 20% 的牆壁 
+	然後確定起點跟終點都是可以移動的位置 
+	*/
+	void initMaze(int s)
+	{
+		int x, y;
+		size = s;
+		maze = new Grid();
+		record = memmoryAllocate(s);
+        Grid *temp = maze;
+        
+		for (int i = 0; i < s; i++) {
+			for (int j = 0; j < s; j++) {
+				temp -> setState(0);
+				if (temp -> getDir(RIGHT) == NULL) {
+					temp -> setDir(RIGHT,new Grid());
+				}
+				temp -> getDir(RIGHT) -> setDir(LEFT,temp);
+				temp = temp -> getDir(RIGHT);
+			}
+			temp = maze;
+			for (int j = 0; j < i; j++) {
+				if (temp -> getDir(DOWN) == NULL) {
+					temp -> setDir(DOWN, new Grid());
+				}
+				temp -> getDir(DOWN) -> setDir(UP,temp);
+				temp -> setState(0);
+				temp = temp -> getDir(DOWN);
+			}
+		}
+		temp = maze;
+		for (int i = 0; i < s; i++) {
+			for (int j = 0; j < s; j++) {
+				temp -> setState(0);
+				temp -> setDir(DOWN,getPos(i,j));
+				getPos(i,j) -> setDir(UP,temp);
+				temp = temp -> getDir(RIGHT);
+			}
+			temp = maze;
+			for (int j = 0; j < i; j++) {
+				temp = temp -> getDir(DOWN);
+			}
+		}
+		for (int i = 0; i*5 < s*s; i++) {
+			x = rand() % s;
+			y = rand() % s;
+			if ((x == 0 && y == 0) || (x == s-1 && y == s-1)) {
+				continue;
+			}
+			getPos(x,y) -> setState(1);
+		}
+	}
+	int **memmoryAllocate(int s) {
+		int **data = new int *[s];
+		int *temp = new int [s*s];
+		for (int i = 0; i < s; i++) {
+			data[i] = temp + i*s;
+		}
+		for (int i = 0; i < s; i++) {
+			for (int j = 0; j < s; j++) {
+				data[i][j] = 0;
+			}
+		}
+		return data;
+	}
+	Grid *getPos(int x, int y) {
+		Grid *temp = maze;
+		for (int i = 0; i < x; i++) {
+			temp = temp -> getDir(DOWN);
+		}
+		for (int j = 0; j < y; j++) {
+			temp = temp -> getDir(RIGHT);
+		}
+		return temp;
+	}
+	/*
+	function getPath
+	This function will find a path between start point and finish point.
+	Return a list content the path information inside.
+	If there is no path between two point then the list will be empty.
+
+	這個函數會找到起點到終點間的一條路徑
+	回傳一個 list 包含著路徑的資訊
+	如果找不到路徑的話 list 就會是空的 
+	*/
+	List *getPath()
+	{
+		List *t = new List();
+		Grid *temp = maze;
+		dfs(0, 0, t, temp);
+		return t;
+	}
+	void dfs(int x, int y, List *ans, Grid *temp) {
+		record[x][y] = 1;
+		ans -> addElement(temp);
+		if (x == size-1 && y == size-1) {
+			return;
+		}
+		if (x+1 < size && record[x+1][y] != 1 && temp -> getDir(RIGHT) -> getState() == 0) {
+			dfs(x+1, y, ans,temp -> getDir(RIGHT));
+			ans -> removeElement();
+		}
+		if (x-1 >= 0 && record[x-1][y] != 1 && temp -> getDir(LEFT) -> getState() == 0) {
+			dfs(x-1, y, ans, temp -> getDir(LEFT));
+			ans -> removeElement();
+		}
+		if (y+1 < size && record[x][y+1] != 1 && temp -> getDir(UP) -> getState() == 0) {
+			dfs(x, y+1, ans, temp -> getDir(UP));
+			ans -> removeElement();
+		}
+		if (y-1 >= 0 && record[x][y-1] != 1 && temp -> getDir(DOWN) -> getState() == 0) {
+			dfs(x, y-1, ans, temp -> getDir(DOWN));
+			ans -> removeElement();
+		}
+	}
+	void printMaze()
+	{
+		Grid *j = maze, *k;
+		while(j != NULL)
+		{
+			k = j;
+			while(k != NULL)
+			{
+				cout<<k->getState();
+				k = k->getDir(RIGHT); 
+			}
+			cout<<endl;
+			j = j->getDir(DOWN);
+		}
+	}
+private:
+	Grid *maze;
+	int size;
+	int **record;
+};
+
+int main()
+{
+	Maze *maze = new Maze();
+	maze->printMaze();
+	maze->getPath()->printPath();
+}
